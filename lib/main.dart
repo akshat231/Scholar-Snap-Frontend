@@ -38,7 +38,7 @@ class ScholarSnap extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const LandingScreen(),
-        '/login': (context) => const LoginScreen(),
+        '/login': (context) =>  LoginScreen(),
         '/home': (context) => const HomeScreen()
       },
     );

@@ -19,14 +19,15 @@ class SocketService {
     required String userId,
     required Function(Map<String, dynamic>) onUpdate,
   }) {
-      final protocol = dotenv.env['BACKEND_PROTOCOL'] ?? 'http';
-  final host = dotenv.env['BACKEND_HOST'] ?? '10.0.2.2';
-  final port = dotenv.env['BACKEND_PORT'] ?? '5000';
+    final protocol = ServerConfig.backendServer['protocol'];
+    final host = ServerConfig.backendServer['host'];
+    final port = ServerConfig.backendServer['port'];
     final url = '$protocol://$host:$port';
-_socket = IO.io(
- url,
-  IO.OptionBuilder().setTransports(['websocket']).build(),
-);
+    logger.i('socket url is: $url');
+    _socket = IO.io(
+      url,
+      IO.OptionBuilder().setTransports(['websocket']).build(),
+    );
 
     _socket.onConnect((_) {
       logger.i('✅ Connected to socket server as user: $userId');
@@ -53,13 +54,19 @@ _socket = IO.io(
 
         switch (status) {
           case 'summary':
-            showGlobalSnackBar('✅ Summary has been generated for $documentName!');
+            showGlobalSnackBar(
+              '✅ Summary has been generated for $documentName!',
+            );
             break;
           case 'citation':
-            showGlobalSnackBar('📚 Citation has been generated for $documentName!');
+            showGlobalSnackBar(
+              '📚 Citation has been generated for $documentName!',
+            );
             break;
           case 'embedding':
-            showGlobalSnackBar('🧠 Embedding has been generated for $documentName!');
+            showGlobalSnackBar(
+              '🧠 Embedding has been generated for $documentName!',
+            );
             break;
           default:
             logger.w('⚠️ Unknown status: $status');

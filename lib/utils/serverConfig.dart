@@ -1,6 +1,5 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-
 class ServerConfig {
   static final Map<String, dynamic> backendServer = {
     'host': dotenv.env['BACKEND_HOST'] ?? '10.0.2.2',
@@ -10,18 +9,18 @@ class ServerConfig {
 
   static const String apiConst = '/api';
 
-  static final String googleClientId =
-      dotenv.env['GOOGLE_CLIENT_ID'] ?? '';
+  static final String googleClientId = dotenv.env['GOOGLE_CLIENT_ID'] ?? '';
 
   static const Map<String, String> apiList = {
     'loginAPI': '/user/login',
+    'demoLoginAPI': '/user/demo-login',
     'themeAPI': '/user/theme',
     'uploadAPI': '/user/upload',
     'getDocumentsAPI': '/user/documents',
     'deleteDocumentAPI': '/user/document',
     'summaryAPI': '/document/summary',
     'citationAPI': '/document/citation',
-    'queryAPI': '/document/query'
+    'queryAPI': '/document/query',
   };
   static String get backendUrl {
     final protocol = backendServer['protocol'];
@@ -36,6 +35,15 @@ class ServerConfig {
     final host = backendServer['host'];
     final port = backendServer['port'];
     final path = apiConst + apiList['loginAPI']!;
+
+    return '$protocol://$host:$port$path';
+  }
+
+  static String get demoLoginApiUrl {
+    final protocol = backendServer['protocol'];
+    final host = backendServer['host'];
+    final port = backendServer['port'];
+    final path = apiConst + apiList['demoLoginAPI']!;
 
     return '$protocol://$host:$port$path';
   }
@@ -85,7 +93,7 @@ class ServerConfig {
     return '$protocol://$host:$port$path';
   }
 
-    static String get citationsApiUrl {
+  static String get citationsApiUrl {
     final protocol = backendServer['protocol'];
     final host = backendServer['host'];
     final port = backendServer['port'];
@@ -94,13 +102,18 @@ class ServerConfig {
     return '$protocol://$host:$port$path';
   }
 
-
-    static String get queryApiUrl {
+  static String get queryApiUrl {
     final protocol = backendServer['protocol'];
     final host = backendServer['host'];
     final port = backendServer['port'];
     final path = apiConst + apiList['queryAPI']!;
 
     return '$protocol://$host:$port$path';
+  }
+
+  static void updateBackendServer(String host, int port, String protocol) {
+    backendServer['host'] = host;
+    backendServer['port'] = port;
+    backendServer['protocol'] = protocol;
   }
 }

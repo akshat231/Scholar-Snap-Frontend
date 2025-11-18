@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'package:http/http.dart' as http;
@@ -15,65 +14,76 @@ import 'dart:convert';
 final logger = Logger();
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+  LoginScreen({super.key});
 
-  Future<void> signInWithGoogle(BuildContext context) async {
-    final googleSignIn = GoogleSignIn.instance;
+  // Backend config text fields
+  final TextEditingController hostController =
+      TextEditingController(text: ServerConfig.backendServer['host']);
+  final TextEditingController portController =
+      TextEditingController(text: ServerConfig.backendServer['port'].toString());
+  final TextEditingController protocolController =
+      TextEditingController(text: ServerConfig.backendServer['protocol']);
 
-    // Initialize with your config
-    await googleSignIn.initialize(serverClientId: ServerConfig.googleClientId);
+  // ------------------------------------
+  // BACKEND LOGIN WITH FIXED DUMMY DATA
+  // ------------------------------------
+  Future<void> loginWithDummyBackend(BuildContext context) async {
+    final url = ServerConfig.demoLoginApiUrl;
+
+    logger.i("Hitting backend login URL: $url");
+
+    final Map<String, dynamic> dummyPayload = {
+      "email": "demo@example.com",
+      "name": "demo"
+    };
 
     try {
-      final account = await googleSignIn.authenticate(
-        scopeHint: ['email', 'profile', 'openid'],
-      );
-      logger.i("Signed in account is $account");
-      final url = ServerConfig.loginApiUrl;
-
-      logger.i('Login url is: $url');
-      logger.i('token is: ${account.authentication.idToken}');
       final response = await http.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'id_token': account.authentication.idToken}),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(dummyPayload),
       );
+
       if (response.statusCode == 200) {
-        // Assuming response has a session token or user info
-        final data = jsonDecode(response.body);
+        final body = jsonDecode(response.body);
+        final userData = Map<String, dynamic>.from(body['data']);
 
-        logger.i("Login success: $data");
+        logger.i("Login successful: $userData");
 
-        //Storing data in state
-        final userData = Map<String, dynamic>.from(data['data']);
         Provider.of<LoginProvider>(context, listen: false).setUser(userData);
-        ThemeMode mode;
-        final String themeStr = userData['theme'] ?? 'light';
-        if (themeStr == 'dark') {
-          mode = ThemeMode.dark;
-        } else if (themeStr == 'light') {
-          mode = ThemeMode.light;
-        } else {
-          mode = ThemeMode.light;
-        }
-        Provider.of<ThemeProvider>(context, listen: false).setThemeMode(mode);
-        final documentsProvider = Provider.of<DocumentsProvider>(
-          context,
-          listen: false,
-        );
-        documentsProvider.connectSocket(userData['id'].toString()); // 👈 Connect WebSocket
 
-        final navigator = Navigator.of(context); // capture before async gap
+        final themeString = userData["theme"] ?? "light";
+        final themeMode =
+            themeString == "dark" ? ThemeMode.dark : ThemeMode.light;
 
-        // Navigate to dashboard
-        navigator.pushNamedAndRemoveUntil('/home', (route) => false);
+        Provider.of<ThemeProvider>(context, listen: false)
+            .setThemeMode(themeMode);
+
+        Provider.of<DocumentsProvider>(context, listen: false)
+            .connectSocket(userData['id'].toString());
+
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/home', (route) => false);
       } else {
-        logger.e("Login failed: ${response.statusCode} ${response.body}");
-        // Show error to user
+        logger.e(
+            "Backend login failed: ${response.statusCode} ${response.body}");
       }
     } catch (e) {
-      logger.e("Google Sign In failed: $e");
-      rethrow;
+      logger.e("Backend login error: $e");
     }
+  }
+
+  // ------------------------------------
+  // UPDATE BACKEND SERVER CONFIG
+  // ------------------------------------
+  void updateServerConfig() {
+    final host = hostController.text.trim();
+    final port = int.tryParse(portController.text.trim()) ?? 5000;
+    final protocol = protocolController.text.trim().toLowerCase();
+
+    ServerConfig.updateBackendServer(host, port, protocol);
+
+    logger.i("Updated backend config → $protocol://$host:$port");
   }
 
   @override
@@ -81,32 +91,89 @@ class LoginScreen extends StatelessWidget {
     return Scaffold(
       appBar: Header(value: 'ScholarSnap'),
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 40),
-            Center(
-              child: Text(
-                "Welcome to ScholarSnap",
-                textAlign: TextAlign.center,
-                style: Styles.boldText,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+
+              // -------------------------------
+              // BACKEND SERVER CONFIG FIELDS
+              // -------------------------------
+              Text("Backend Server Config", style: Styles.boldText),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: hostController,
+                      decoration: const InputDecoration(
+                        labelText: "Host",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: portController,
+                      decoration: const InputDecoration(
+                        labelText: "Port",
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: protocolController,
+                      decoration: const InputDecoration(
+                        labelText: "Protocol (http / https)",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: updateServerConfig,
+                      child: const Text("Update Backend Config"),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: Text(
-                "Unlock the full potential of your research with ScholarSnap",
-                textAlign: TextAlign.center,
-                style: Styles.normalText,
+
+              const SizedBox(height: 20),
+
+              // -------------------------------
+              // LOGIN SECTION
+              // -------------------------------
+              Center(
+                child: Text(
+                  "Welcome to ScholarSnap",
+                  textAlign: TextAlign.center,
+                  style: Styles.boldText,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Highlightedbutton(
-              value: 'G  Login With Google',
-              onPressed: () async {
-                await signInWithGoogle(context);
-              },
-            ),
-          ],
+              const SizedBox(height: 20),
+
+              Center(
+                child: Text(
+                  "Unlock the full potential of your research",
+                  textAlign: TextAlign.center,
+                  style: Styles.normalText,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Highlightedbutton(
+                value: "🚀 Enter Demo App (Backend Login)",
+                onPressed: () async {
+                  await loginWithDummyBackend(context);
+                },
+              ),
+
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
     );
