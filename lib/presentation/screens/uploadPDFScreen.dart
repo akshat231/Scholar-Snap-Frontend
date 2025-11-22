@@ -10,9 +10,10 @@ import '../../constant.dart';
 import '../../providers/themeProvider.dart';
 import '../../providers/loginProvider.dart';
 import '../../utils/serverConfig.dart';
-import 'dart:io';
+import 'package:dio/dio.dart';
 
 final logger = Logger();
+final dio = Dio();
 
 class UploadPDFScreen extends StatefulWidget {
   const UploadPDFScreen({super.key});
@@ -36,6 +37,7 @@ class _UploadPDFScreenState extends State<UploadPDFScreen> {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
+        withData: true, // <-- REQUIRED for bytes
       );
       if (result == null) {
         // User canceled picker
@@ -45,35 +47,20 @@ class _UploadPDFScreenState extends State<UploadPDFScreen> {
         return;
       }
 
-      final filePath = result.files.single.path;
-      if (filePath == null) {
-        setState(() {
-          isUploading = false;
-        });
-        return;
-      }
-
-      final file = File(filePath);
-      final fileName = result.files.single.name;
-
       final url = ServerConfig.uploadPDFUrl;
 
-      final request = http.MultipartRequest('POST', Uri.parse(url));
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          file.path,
-          filename: fileName,
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          result.files.single.bytes!,
+          filename: result.files.single.name,
         ),
+        'id': id.toString(),
+      });
+
+      final response = await dio.post(
+        ServerConfig.uploadPDFUrl,
+        data: formData,
       );
-      request.fields['id'] = id.toString();
-
-      // Send request and await response
-      final streamedResponse = await request.send();
-
-      // No progress update here because 'http' doesn't support progress out of the box
-
-      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
